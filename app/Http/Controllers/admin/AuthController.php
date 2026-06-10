@@ -25,33 +25,25 @@ class AuthController extends Controller
             ], 400);
         }
 
-        // ১. আগে ইমেইল ও পাসওয়ার্ড ঠিক আছে কিনা চেক করুন
         if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
+            /** @var \App\Models\User $user */
+            $user = Auth::user();
+            $token = $user->createToken('auth_token')->plainTextToken;
 
-            $user = Auth::user(); // সরাসরি অথেনটিকেটেড ইউজার অবজেক্ট নিন
-
-            // ২. রোল চেক করুন এবং স্পেসিফিক মেসেজ দিন
-            if ($user->role === 'admin') {
-                $token = $user->createToken('auth_token')->plainTextToken;
-
-                return response()->json([
-                    'status' => 200,
-                    'message' => 'Admin login successfully',
-                    'token' => $token,
+            // রোল অনুযায়ী রেসপন্স পাঠানো
+            return response()->json([
+                'status' => 200,
+                'message' => 'Login successful',
+                'token' => $token,
+                'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
-                ]);
-            }
-
-            // রোল admin না হলে ৪MD (Forbidden) বা ৪০১ দিন, কিন্তু মেসেজ আলাদা করুন
-            return response()->json([
-                'status' => 403,
-                'message' => 'Access Denied: You do not have administrator privileges.',
-            ], 403);
-
+                    'email' => $user->email,
+                    'role' => $user->role ?? 'customer', // আপনার ডাটাবেজে রোল কলাম থাকতে হবে
+                ]
+            ], 200);
         }
 
-        // ক্রেডিশিয়াল ভুল হলে আলাদা মেসেজ
         return response()->json([
             'status' => 401,
             'message' => 'Invalid email or password.'
@@ -73,22 +65,26 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // এখানে আপনি হার্ডকোডেড admin দিচ্ছেন, তাই এই ফর্ম দিয়ে তৈরি করলে ইউজার admin-ই হবে
+        // সিকিউরিটি ফিক্স: ডিফল্ট রোল হবে 'customer'
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => 'admin',
+            'role' => 'customer',
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'status' => 201,
-            'message' => 'Admin registered successfully',
+            'message' => 'Registration successful',
             'token' => $token,
-            'id' => $user->id,
-            'name' => $user->name,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+            ]
         ], 201);
     }
 }
